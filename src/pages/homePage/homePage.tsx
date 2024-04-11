@@ -25,7 +25,8 @@ const HomePage: FC<{}> = ({}) => {
         checkedB: false,
     });
     const [sliderValue, setSliderValue] = useState(30);
-    const [searchResults, setSearchResults] = useState<{ id: string; title: string }[]>([]);
+    const [searchResults, setSearchResults] = useState<{id: string; title: string; }[]>([]);
+
     const [healthLabels, setHealthLabels] = useState([
             {id: 1, label: "vegan", checked: false},
             {id: 2, label: "vegetarian", checked: false},
@@ -62,17 +63,77 @@ const HomePage: FC<{}> = ({}) => {
 
     }
 
-    const handleSubmit = async () => {
-        //todo: add request to Solr
-        setSearchResults([
-            {id: '1', title: 'Recipe 1'},
-            {id: '2', title: 'Recipe 2'},
-            {id: '3', title: 'Recipe 3'},
-            {id: '4', title: 'Recipe 4'},
-            {id: '5', title: 'Recipe 5'},
-            {id: '6', title: 'Recipe 6'},
-        ]);
+    // const handleSubmit = async () => {
+    //     //todo: add request to Solr
+    //     setSearchResults([
+    //         {id: '1', title: 'Recipe 1'},
+    //         {id: '2', title: 'Recipe 2'},
+    //         {id: '3', title: 'Recipe 3'},
+    //         {id: '4', title: 'Recipe 4'},
+    //         {id: '5', title: 'Recipe 5'},
+    //         {id: '6', title: 'Recipe 6'},
+    //     ]);
+    // };
+
+    // Define an interface to describe the structure of a document returned by Solr
+    interface SolrDocument {
+        uri: string[];
+        label: string[];
+        image: string[];
+        source: string[];
+        url: string[];
+        shareAs: string[];
+        yield: number[];
+        dietLabels: string[];
+        healthLabels: string[];
+        cautions: string[];
+        ingredientLines: string[];   
+        id:string;
+    }
+
+// Define an interface for the Solr response structure, focusing on the parts we use
+interface SolrResponse {
+    response: {
+        numFound: number;
+        start: number;
+        numFoundExact: boolean;
+        docs: SolrDocument[];
     };
+}
+const handleSubmit = async () => {
+        try {
+            const solrUrl = 'http://localhost:8983/solr/Foods/';
+            const queryParams = 'query?q=dietLabels:Low-Fat'; 
+            // console.log("hello");
+     
+            const response = await fetch(`${solrUrl}${queryParams}`
+            , {
+                method: 'GET', 
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+    
+            if (!response.ok) {
+                throw new Error(`Solr request failed: ${response.statusText}`);
+            }
+    
+            const data: SolrResponse = await response.json();
+
+            const results = data.response.docs.map((doc: SolrDocument) => ({
+              id: doc.id,
+              title: doc.healthLabels[0],
+            }));
+            
+            
+
+           setSearchResults(results);
+        } catch (error) {
+            console.error('Error fetching data from Solr:', error);
+     
+        }
+    };
+    
 
     return (
         <div className="homepage">
@@ -130,10 +191,11 @@ const HomePage: FC<{}> = ({}) => {
                     <Button variant="contained" onClick={handleSubmit}>Submit</Button>
                 </Grid>
                 <Grid item xs={8}>
-                    {searchResults.map((result) => (
-                        <Typography key={result.id}>
-                            <Link to={`/detailPage/${result.id}`}>{result.title}</Link>
-                            {/*<span>hello</span>*/}
+                    {searchResults.map((results) => (
+                        <Typography key={results.id}>
+                            {/* <Link to={`/detailPage/${results.id}`}>{results.title}</Link>
+                            <span>hello</span> */}
+                            {results.title}
                         </Typography>
                     ))}
                     <Pagination count={10} color="primary"/>
