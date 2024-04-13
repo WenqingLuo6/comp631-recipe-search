@@ -14,18 +14,55 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import "./homePage.css"
-import {Link} from "react-router-dom";
+import {Link, useNavigate} from "react-router-dom";
+import { v4 as uuidv4 } from 'uuid';
+
+const cuisineTypes=['american','asian','british','caribbean','central europe','chinese','eastern europe','french','indian','italian','japanese','kosher','mediterranean','mexican','middle eastern','nordic','south american','south east asian']
+    // Define an interface to describe the structure of a document returned by Solr
+    interface SolrDocument {
+        uri: string[];
+        label: string[];
+        image: string[];
+        source: string[];
+        url: string[];
+        shareAs: string[];
+        yield: number[];
+        dietLabels: string[];
+        healthLabels: string[];
+        cautions: string[];
+        ingredientLines: string[];   
+        id:string;
+        calories:number[]
+    }
+
+// Define an interface for the Solr response structure, focusing on the parts we use
+interface SolrResponse {
+    response: {
+        numFound: number;
+        start: number;
+        numFoundExact: boolean;
+        docs: SolrDocument[];
+    };
+}
+
+interface Recipe {
+    id:string
+    label:string
+    url:string
+    ingredientLines:string[]
+    calorie:number
+}
+
 
 const HomePage: FC<{}> = ({}) => {
 
-    //todo: placeholder filters and searchbar
-    const [searchQuery, setSearchQuery] = useState('');
+    const [label, setLabel] = useState(''); //only search for recipe name
     const [checkboxState, setCheckboxState] = useState({
         checkedA: false,
         checkedB: false,
     });
-    const [sliderValue, setSliderValue] = useState(30);
-    const [searchResults, setSearchResults] = useState<{id: string; title: string; }[]>([]);
+
+
 
     const [healthLabels, setHealthLabels] = useState([
             {id: 1, label: "vegan", checked: false},
@@ -44,13 +81,19 @@ const HomePage: FC<{}> = ({}) => {
             {id: 14, label: "shellfish-free", checked: false}
         ]
     );
+    const [cuisineType, setCuisineType] = useState<string>("")
+    const [calorie, setCalorie] = useState<number>(0)
+    const [searchedRecipes, setSearchedRecipes]=useState<Recipe[]>([])
+    const [displayedRecipes, setDisplayedRecipes]=useState<Recipe[]>([])
+    const navigate = useNavigate();
+
 
     const handleCheckboxChange = (event: ChangeEvent<HTMLInputElement>) => {
         setCheckboxState({...checkboxState, [event.target.name]: event.target.checked});
     };
 
     const handleSliderChange = (event: Event, newValue: number | number[]) => {
-        setSliderValue(newValue as number);
+        setCalorie(newValue as number);
     };
 
     const onHealthLabelChange = (healthLabelID: number) => {
@@ -63,56 +106,91 @@ const HomePage: FC<{}> = ({}) => {
 
     }
 
-    // const handleSubmit = async () => {
-    //     //todo: add request to Solr
-    //     setSearchResults([
-    //         {id: '1', title: 'Recipe 1'},
-    //         {id: '2', title: 'Recipe 2'},
-    //         {id: '3', title: 'Recipe 3'},
-    //         {id: '4', title: 'Recipe 4'},
-    //         {id: '5', title: 'Recipe 5'},
-    //         {id: '6', title: 'Recipe 6'},
-    //     ]);
-    // };
-
-    // Define an interface to describe the structure of a document returned by Solr
-    interface SolrDocument {
-        uri: string[];
-        label: string[];
-        image: string[];
-        source: string[];
-        url: string[];
-        shareAs: string[];
-        yield: number[];
-        dietLabels: string[];
-        healthLabels: string[];
-        cautions: string[];
-        ingredientLines: string[];   
-        id:string;
+    const onCuisineTypeChange=(cuisineTypeName:string)=>{
+        setCuisineType(cuisineTypeName)
     }
 
-// Define an interface for the Solr response structure, focusing on the parts we use
-interface SolrResponse {
-    response: {
-        numFound: number;
-        start: number;
-        numFoundExact: boolean;
-        docs: SolrDocument[];
-    };
-}
-const handleSubmit = async () => {
+
+    const handlePaginationChange=(event:ChangeEvent<unknown> ,page:number)=>{
+        setDisplayedRecipes(searchedRecipes.slice((page-1)*10, page*10))
+    }
+
+    const navigateToDetail=(recipe:Recipe)=>{
+        navigate(`/detail`, { state: { recipe } });
+    }
+
+
+
+const handleSubmit = async (/*healthLabel:string, cuisineType:string, calories: number, label: string*/) => {
         try {
-            const solrUrl = 'http://localhost:8983/solr/Foods/';
-            const queryParams = 'query?q=dietLabels:Low-Fat'; 
-            // console.log("hello");
+            let solrUrl = 'http://localhost:8983/solr/Foods/';
+            let queryParams = 'query?q=';
+            let query = '';
+            let healthLabel=healthLabels.filter((healthLabel)=>healthLabel.checked).map((healthLabel)=>healthLabel.label)
+            if (label.length > 0) {
+                // add AND
+                query = 'label:' + label;
+                queryParams = queryParams + query;
+            }
+            if (healthLabel.length > 0) {
+                if (query.length !== 0) {
+                    queryParams = queryParams + '&';
+                    query = '';
+                }
+                for (let i = 0; i < healthLabel.length; i++) {
+                    if (healthLabel.length > 0 && query.length === 0) {
+                        query = 'healthLabels:' + healthLabel[i];
+                    }
+                    else {
+                        query = query + '&healthLabels:' + healthLabel[i];
+                    }
+                }
+                
+                
+                queryParams = queryParams + query;
+            }
+            if (cuisineType.length > 0) {
+                // add AND
+                if (query.length > 0) {
+                    query = '&cuisineType:' + cuisineType;
+                    
+                }
+                // does not add AND
+                else {
+                    query = 'cuisineType:' + cuisineType;
+                }
+                queryParams = queryParams + query;
+            }
+            if (calorie > 0) {
+                let cal = calorie.toString();
+                // add AND
+                if (query.length > 0) {
+                    query = '&fq=calories:{*%20TO%20' + cal + '}';
+                    
+                }
+                else {
+                    query = '*&fq=calories:{*%20TO%20' + cal + '}';
+                }
+                queryParams = queryParams + query;
+            }
+            if (query.length === 0) {
+                queryParams = queryParams + '*';
+            }
+            // sort by ascending orders calories
+            queryParams = queryParams + "&rows=100&sort=calories%20asc";
+           
+            console.log(queryParams);
      
             const response = await fetch(`${solrUrl}${queryParams}`
             , {
                 method: 'GET', 
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
             });
+
+            console.log(response);
+            
     
             if (!response.ok) {
                 throw new Error(`Solr request failed: ${response.statusText}`);
@@ -120,15 +198,24 @@ const handleSubmit = async () => {
     
             const data: SolrResponse = await response.json();
 
-            const results = data.response.docs.map((doc: SolrDocument) => ({
+            console.log(data.response.docs);
+            
+
+            const results:Recipe[] = data.response.docs.map((doc: SolrDocument) => ({
               id: doc.id,
-              title: doc.healthLabels[0],
+              label: doc.label[0],
+              url:doc.url[0],
+              ingredientLines:doc.ingredientLines,
+              calorie:doc.calories[0]
             }));
             
             
 
-           setSearchResults(results);
+           setSearchedRecipes(results);
+           setDisplayedRecipes(results.slice(0,10))
         } catch (error) {
+            console.log(error);
+            
             console.error('Error fetching data from Solr:', error);
      
         }
@@ -144,7 +231,6 @@ const handleSubmit = async () => {
                         Search Recipes
                     </Typography>
                 </Toolbar>
-
             </AppBar>
             <Grid container spacing={10}>
                 <Grid item xs={4}>
@@ -152,16 +238,17 @@ const handleSubmit = async () => {
                         fullWidth
                         label="Search"
                         variant="outlined"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
                     />
-                    <FormGroup>
-                        <FormControlLabel
+                    <FormGroup sx={{gap:2}}>
+                        {/* <FormControlLabel
                             control={<Checkbox checked={checkboxState.checkedA} onChange={handleCheckboxChange}
                                                name="checkedA"/>} label="Option A"/>
                         <FormControlLabel
                             control={<Checkbox checked={checkboxState.checkedB} onChange={handleCheckboxChange}
-                                               name="checkedB"/>} label="Option B"/>
+                                               name="checkedB"/>} label="Option B"/> */}
+                        {/* health label selection */}
                         <Accordion>
                             <AccordionSummary
                                 expandIcon={<ExpandMoreIcon/>}
@@ -172,7 +259,7 @@ const handleSubmit = async () => {
                             </AccordionSummary>
                             <AccordionDetails>
                                 {healthLabels.map((healthLabel) => (<FormControlLabel
-                                    id={healthLabel.id as unknown as string}
+                                    key={healthLabel.id as unknown as string}
                                     control={
                                         <Checkbox
                                             checked={healthLabel.checked}
@@ -182,23 +269,44 @@ const handleSubmit = async () => {
                                     }
                                     label={healthLabel.label}
                                 />))}
-
+                            </AccordionDetails>
+                        </Accordion>
+                        {/* cuisine type selection */}
+                        <Accordion>
+                            <AccordionSummary
+                                expandIcon={<ExpandMoreIcon/>}
+                                aria-controls="panel1a-content"
+                                id="panel1a-header"
+                            >
+                                <Typography>Cuisine Type</Typography>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                                {cuisineTypes.map((cuisineTypeName) => (<FormControlLabel
+                                    key={uuidv4()}
+                                    control={
+                                        <Checkbox
+                                            checked={cuisineType===cuisineTypeName}
+                                            onChange={() => onCuisineTypeChange(cuisineTypeName)}
+                                            name={cuisineTypeName}
+                                        />
+                                    }
+                                    label={cuisineTypeName}
+                                />))}
                             </AccordionDetails>
                         </Accordion>
                     </FormGroup>
-                    <Typography>Slider Value: {sliderValue}</Typography>
-                    <Slider value={sliderValue} onChange={handleSliderChange} aria-labelledby="input-slider"/>
+                    <Typography>Calories: {calorie}</Typography>
+                    <Slider value={calorie} onChange={handleSliderChange} aria-labelledby="input-slider" min={0} max={10000}/>
                     <Button variant="contained" onClick={handleSubmit}>Submit</Button>
                 </Grid>
                 <Grid item xs={8}>
-                    {searchResults.map((results) => (
-                        <Typography key={results.id}>
-                            {/* <Link to={`/detailPage/${results.id}`}>{results.title}</Link>
-                            <span>hello</span> */}
-                            {results.title}
+                    {displayedRecipes.map((recipe) => (
+                        <Typography key={recipe.id}>
+                            {/* <Link to={{pathname:`/detailPage/${recipe.id}`,state:{recipe:recipe}}} >{recipe.label}</Link> */}
+                            <button onClick={()=>navigateToDetail(recipe)}>{recipe.label}</button>
                         </Typography>
                     ))}
-                    <Pagination count={10} color="primary"/>
+                    <Pagination count={searchedRecipes.length/10} color="primary" onChange={handlePaginationChange}/>
                 </Grid>
             </Grid>
         </div>
