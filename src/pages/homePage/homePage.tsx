@@ -32,7 +32,13 @@ const cuisineTypes=['american','asian','british','caribbean','central europe','c
         cautions: string[];
         ingredientLines: string[];   
         id:string;
-        calories:number[]
+        calories:number[];
+        [key: string]: any; // Keeps the interface flexible
+        "totalNutrients.FAT.quantity": number[];  // Specifically define this key as an array of numbers
+        "totalNutrients.FASAT.quantity":number[];
+        "totalNutrients.FATRN.quantity":number[];
+        "totalNutrients.FAMS.quantity":number[];
+        "totalNutrients.FAPU.quantity":number[];
     }
 
 // Define an interface for the Solr response structure, focusing on the parts we use
@@ -51,6 +57,12 @@ interface Recipe {
     url:string
     ingredientLines:string[]
     calorie:number
+    fat:number; 
+    satfat:number;
+    transfat:number;
+    monsfat:number;
+    posfat:number;
+    healthLabel: string[]
 }
 
 
@@ -107,7 +119,8 @@ const HomePage: FC<{}> = ({}) => {
     }
 
     const onCuisineTypeChange=(cuisineTypeName:string)=>{
-        setCuisineType(cuisineTypeName)
+
+        setCuisineType(current => current === cuisineTypeName ? "" : cuisineTypeName);
     }
 
 
@@ -206,7 +219,13 @@ const handleSubmit = async (/*healthLabel:string, cuisineType:string, calories: 
               label: doc.label[0],
               url:doc.url[0],
               ingredientLines:doc.ingredientLines,
-              calorie:doc.calories[0]
+              calorie:doc.calories[0],
+              healthLabel:doc.healthLabels,
+              fat:doc["totalNutrients.FAT.quantity"][0],
+              satfat:doc["totalNutrients.FASAT.quantity"][0],
+              transfat:doc["totalNutrients.FATRN.quantity"][0],
+              monsfat:doc["totalNutrients.FAMS.quantity"][0],
+              posfat:doc["totalNutrients.FAPU.quantity"][0],
             }));
             
             
