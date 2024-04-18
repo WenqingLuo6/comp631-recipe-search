@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, List, ListItem, ListItemText } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const genAI = new GoogleGenerativeAI("AIzaSyD4gGO5URMsU-tylajiPOdGEpqCX0Yl4lM");
+const genAI = new GoogleGenerativeAI("your api key");
 
 
 
