@@ -16,6 +16,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import "./homePage.css"
 import {Link, useNavigate} from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid';
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const genAI = new GoogleGenerativeAI("AIzaSyD4gGO5URMsU-tylajiPOdGEpqCX0Yl4lM");
+
+
 
 const cuisineTypes=['american','asian','british','caribbean','central europe','chinese','eastern europe','french','indian','italian','japanese','kosher','mediterranean','mexican','middle eastern','nordic','south american','south east asian']
     // Define an interface to describe the structure of a document returned by Solr
@@ -128,8 +132,9 @@ const HomePage: FC<{}> = ({}) => {
         setDisplayedRecipes(searchedRecipes.slice((page-1)*10, page*10))
     }
 
-    const navigateToDetail=(recipe:Recipe)=>{
-        navigate(`/detail`, { state: { recipe } });
+    const navigateToDetail=async (recipe:Recipe)=>{
+    
+        navigate(`/detail`, { state: { recipe }});
     }
 
 
@@ -228,7 +233,9 @@ const handleSubmit = async (/*healthLabel:string, cuisineType:string, calories: 
               posfat:doc["totalNutrients.FAPU.quantity"][0],
             }));
             
-            
+            // llm query 
+            console.log(results);
+
 
            setSearchedRecipes(results);
            setDisplayedRecipes(results.slice(0,10))

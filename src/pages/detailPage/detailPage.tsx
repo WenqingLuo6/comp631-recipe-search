@@ -1,7 +1,12 @@
-import { FC, memo } from "react";
+import { FC, useEffect, useState, memo } from "react";
 import { useLocation } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, List, ListItem, ListItemText } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const genAI = new GoogleGenerativeAI("AIzaSyD4gGO5URMsU-tylajiPOdGEpqCX0Yl4lM");
+
+
+
 
 const DetailPage: FC<{}> = ({}) => {
     let location = useLocation();
@@ -9,6 +14,22 @@ const DetailPage: FC<{}> = ({}) => {
     console.log(location.state.recipe);
 
     const navigate = useNavigate();
+    const [responseText, setResponseText] = useState('');
+
+    useEffect(() => {
+        async function fetchData() {
+            const lab = recipe.label;
+            const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+            const query = "Please only give me history. Tell me some fun history of the recipe " + lab;
+            const msg = await model.generateContent(query);
+            const response = await msg.response;
+            const text = await response.text();
+            setResponseText(text);  // Update state with the response text
+            console.log(text);  // Log text to console
+        }
+
+        fetchData();
+    }, [recipe.label]); 
 
     return (
         <div className="homepage">
@@ -93,6 +114,15 @@ const DetailPage: FC<{}> = ({}) => {
                     </div>
                 </div>
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap' }}>  {/* Fun culture and history section */}
+                <Typography variant="h5" component="h2" color="blue">
+                    Fun Culture and History
+                </Typography>
+                <Typography variant="h6" component="div" style={{ marginTop: "10px", whiteSpace: "pre-wrap" }}>
+                    {responseText || "Loading..."}
+                </Typography>
+            </div>
+
             <div>
                 <button onClick={() => navigate(`/`)}>Back to search</button>
             </div>
